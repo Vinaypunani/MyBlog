@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
+const authRoutes = require('./routes/v1/auth.routes');
 
 dotenv.config();
 
@@ -24,7 +25,8 @@ app.get('/v1/health', (req, res) => {
 });
 
 // Example route groups according to PRD
-app.use('/v1/auth', express.Router());
+
+app.use('/v1/auth', authRoutes);
 app.use('/v1/users', express.Router());
 app.use('/v1/posts', express.Router());
 app.use('/v1/comments', express.Router());
