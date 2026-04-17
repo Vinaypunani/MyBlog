@@ -1,16 +1,17 @@
 const express = require('express');
 const authController = require('../../controllers/auth.controller');
 const { requireAuth } = require('../../middlewares/auth.middleware');
-// Hypothetical rate limiters
-// const { loginLimiter, mfaLimiter } = require('../../middlewares/rateLimiter.middleware');
+const { loginLimiter, mfaLimiter, globalAuthLimiter } = require('../../middlewares/rateLimiter.middleware');
 
 const router = express.Router();
+
+router.use(globalAuthLimiter);
 
 // =======================
 // Traditional & Security Flow
 // =======================
 router.post('/register', authController.register);
-router.post('/login', authController.login);
+router.post('/login', loginLimiter, authController.login);
 router.post('/logout', requireAuth, authController.logout);
 router.post('/refresh', authController.refresh);
 
@@ -41,6 +42,6 @@ router.delete('/sessions/:id', requireAuth, authController.deleteSession);
 // =======================
 router.post('/mfa/setup', requireAuth, authController.setupMfa);
 router.post('/mfa/verify', requireAuth, authController.verifyMfaSetup);
-router.post('/mfa/challenge', authController.mfaChallenge);
+router.post('/mfa/challenge', mfaLimiter, authController.mfaChallenge);
 
 module.exports = router;

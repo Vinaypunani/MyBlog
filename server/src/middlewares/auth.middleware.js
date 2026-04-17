@@ -1,6 +1,12 @@
 /**
  * Authentication & Authorization Middlewares
  */
+const jwt = require('jsonwebtoken');
+
+// Assume Redis client is configured elsewhere
+// const redis = require('ioredis');
+// const redisClient = new redis(process.env.REDIS_URL);
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_change_in_production';
 
 /**
  * Validates the Short-Lived Access Token (JWT)
@@ -15,43 +21,35 @@ exports.requireAuth = async (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
 
-    // TODO: Verify JWT signature using RS256 Public Key (or JWKs)
+    const decoded = jwt.verify(token, JWT_SECRET);
     
     // TODO: Verify token is NOT in Redis Blacklist:
-    // const isBlacklisted = await redisClient.get(`bl_${token_jti}`);
-    // if (isBlacklisted) throw UnAuthorizedError
-    
-    // Stub payload binding
-    req.user = { id: 'decoded_user_id', role: 'reader' };
-    
-    // TODO: Debounced update of Active Session logic in DB
-    // e.g. update session.lastActiveAt if more than 5 minutes have passed
+    // const isBlacklisted = await redisClient.get(`bl_${token}`);
+    // if (isBlacklisted) return res.status(401).json({ success: false, message: 'Token revoked' });
 
+    // Attach to request
+    req.user = decoded; // { id, role, iat, exp }
+    
+    // NOTE: In a true production app, session debouncing to DB occurs here
+    
     next();
   } catch (error) {
-    res.status(401).json({ success: false, message: 'Invalid or expired token.' });
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ success: false, message: 'Access token expired.' });
+    }
+    return res.status(401).json({ success: false, message: 'Invalid token.' });
   }
 };
 
 /**
  * Validates granular RBAC permissions.
- * Reads user permissions optimally from Redis cache.
  */
-exports.requirePermission = (requiredPermission) => {
+exports.requireRole = (allowedRoles = []) => {
   return async (req, res, next) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ success: false, message: 'Not authenticated.' });
-      }
-
-      // TODO: Fetch user permissions from Redis cache (fallback to Mongo)
-      // const permissions = await redisClient.smembers(`user:${req.user.id}:permissions`);
-      const hasPermission = true; // Stub
-
-      if (!hasPermission) {
+      if (!req.user || !allowedRoles.includes(req.user.role)) {
         return res.status(403).json({ success: false, message: 'Insufficient permissions.' });
       }
-
       next();
     } catch (error) {
       next(error);
